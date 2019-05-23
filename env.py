@@ -1,16 +1,23 @@
 import torch
 import numpy as np
 import gym
+import pandas as pd
+from tabulate import tabulate
+from prettytable import PrettyTable
 
 class ChainAgent(gym.Env):
     def __init__(self, inventory_level=0,
-                 max_num_steps=1000,
+                 max_num_steps=15,
                  max_capability_of_storage=20,
                  delay_factor=0.5,
                  delay_mean=2,
                  delay_var=1,
                  min_demand=2,
                  max_demand=30):
+
+        print('=========================================')
+        print('INITIAL CONFIGURATION: inventory level {}'.format(inventory_level))
+        print('=========================================')
 
         self.inventory_level = inventory_level
         self.max_num_steps = max_num_steps
@@ -47,32 +54,27 @@ class ChainAgent(gym.Env):
 
 
     def calculate_reward(self):
-        if self.inventory_level >= 0:
-            return self.inventory_level * self.c_IL_positive
-        else:
-            return self.inventory_level * self.c_IL_negative
+        return (self.inventory_level >= 0) * self.c_IL_positive + (self.inventory_level >= 0) * self.c_IL_negative
 
 
     def step(self, action):
+        self.action = action
         self.time += 1
 
         self.demand = np.random.randint(self.min_demand, self.max_demand)
         self.inventory_level -= self.demand
 
-
-        # print(np.round(self.delayed()) + self.time)
-
         self.upcoming_goods[int(np.round(self.delayed()) + self.time)] += action
         self.ordered_goods = self.upcoming_goods[self.time:np.max(np.nonzero(self.upcoming_goods))]
 
-        recieved = self.upcoming_goods[self.time]
-        self.recieved_goods.append(recieved)
-        self.inventory_level += recieved
+        self.recieved = self.upcoming_goods[self.time]
+        self.recieved_goods.append(self.recieved)
+        self.inventory_level += self.recieved
 
         if self.time > self.max_num_steps:
             self.done = True
 
-        return (self.inventory_level, self.ordered_goods, recieved, self.demand), self.calculate_reward(), self.done, {}
+        return (self.inventory_level, self.ordered_goods, self.recieved, self.demand), self.calculate_reward(), self.done, {}
 
 
     def reset(self):
@@ -83,10 +85,30 @@ class ChainAgent(gym.Env):
         return (self.inventory_level, self.ordered_goods, 0, self.demand)
 
 
-    def render(self):
-        print('upcoming: ', self.upcoming_goods)
-        print('oredered: ', self.ordered_goods)
-        print('time: ', self.time)
+    def render(self, close):
+        print('#{}    {} <- |{}| -> ({}) <- {}'.format(self.time, self.demand, self.inventory_level, self.action, self.recieved))
+        print(tabulate(pd.DataFrame(self.upcoming_goods).T, tablefmt='psql'))
+
+
+
+        # Color
+        R = "\033[0;31;40m"  # RED
+        G = "\033[0;32;40m"  # GREEN
+        Y = "\033[0;33;40m"  # Yellow
+        B = "\033[0;34;40m"  # Blue
+        N = "\033[0m"  # Reset
+
+        a = "ok"
+        b = "Failed"
+        t = PrettyTable(['Input', 'status'])
+
+        # Adding Both example in table
+        t.add_row(['FAN', G + a + N])
+        t.add_row(['FAN', R + b + N])
+
+        print(t)
+
+
 
 
 
