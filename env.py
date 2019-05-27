@@ -1,4 +1,4 @@
-import torch
+# import torch
 import numpy as np
 import gym
 import pandas as pd
@@ -10,7 +10,7 @@ class ChainAgent(gym.Env):
                  max_num_steps=15,
                  max_capability_of_storage=20,
                  delay_factor=0.5,
-                 delay_mean=2,
+                 delay_mean=5,
                  delay_var=1,
                  min_demand=2,
                  max_demand=30):
@@ -28,7 +28,7 @@ class ChainAgent(gym.Env):
         self.max_demand = max_demand
 
         #configuration
-        self.time = 0
+        self.time = -1
 
         #state variables
         self.ordered_goods = []
@@ -87,9 +87,7 @@ class ChainAgent(gym.Env):
 
     def render(self, close):
         print('#{}    {} <- |{}| -> ({}) <- {}'.format(self.time, self.demand, self.inventory_level, self.action, self.recieved))
-        print(tabulate(pd.DataFrame(self.upcoming_goods).T, tablefmt='psql'))
-
-
+        # print(tabulate(pd.DataFrame(self.upcoming_goods).T, tablefmt='psql'))
 
         # Color
         R = "\033[0;31;40m"  # RED
@@ -97,15 +95,12 @@ class ChainAgent(gym.Env):
         Y = "\033[0;33;40m"  # Yellow
         B = "\033[0;34;40m"  # Blue
         N = "\033[0m"  # Reset
+        t = PrettyTable(range(len(self.upcoming_goods)))
 
-        a = "ok"
-        b = "Failed"
-        t = PrettyTable(['Input', 'status'])
+        upcoming = list(map(str, self.upcoming_goods.copy()))
+        upcoming[self.time] = str(R + str(upcoming[self.time]) + N)
 
-        # Adding Both example in table
-        t.add_row(['FAN', G + a + N])
-        t.add_row(['FAN', R + b + N])
-
+        t.add_row(upcoming)
         print(t)
 
 
