@@ -13,7 +13,10 @@ class ChainAgent(gym.Env):
                  delay_mean=5,
                  delay_var=1,
                  min_demand=2,
-                 max_demand=30):
+                 max_demand=30,
+                 fix_delay=3,
+                 next_n_steps=5,
+                 demand_generation_function=None):
 
         print('=========================================')
         print('INITIAL CONFIGURATION: inventory level {}'.format(inventory_level))
@@ -26,6 +29,14 @@ class ChainAgent(gym.Env):
         self.c_IL_negative = 1
         self.min_demand = min_demand
         self.max_demand = max_demand
+        self.fix_delay = fix_delay
+        self.next_n_steps = next_n_steps
+        self.demand_generation_function = demand_generation_function
+
+        self.action_min = 10
+        self.action_min = 20
+
+        self.action_range = list(range(10, 20))
 
         #configuration
         self.time = -1
@@ -48,33 +59,41 @@ class ChainAgent(gym.Env):
 
     def delayed(self):
         if np.random.binomial(1, self.delay_factor):
-            return np.random.normal(self.delay_mean, self.delay_var)
+            return self.fix_delay + np.random.normal(self.delay_mean, self.delay_var)
         else:
-            return 0
+            return self.fix_delay
 
 
     def calculate_reward(self):
-        return (self.inventory_level >= 0) * self.c_IL_positive + (self.inventory_level >= 0) * self.c_IL_negative
+        #TODO: change logic
+
+        return -np.abs(self.inventory_level) * self.c_IL_positive
+        #* self.c_IL_positive + (self.inventory_level >= 0) * self.c_IL_negative
 
 
     def step(self, action):
-        self.action = action
+        self.action = self.action_range[action]
         self.time += 1
 
-        self.demand = np.random.randint(self.min_demand, self.max_demand)
+        self.demand = self.demand_generation_function()#(self.min_demand, self.max_demand)
         self.inventory_level -= self.demand
 
         self.upcoming_goods[int(np.round(self.delayed()) + self.time)] += action
-        self.ordered_goods = self.upcoming_goods[self.time:np.max(np.nonzero(self.upcoming_goods))]
-
         self.recieved = self.upcoming_goods[self.time]
+
+        self.upcoming_n_steps = self.upcoming_goods[self.time: self.time + self.next_n_steps]
+        self.sum_all_ordered = self.upcoming_goods[self.time:].sum()
+
+        #TODO: add sum of all orders
+
+
         self.recieved_goods.append(self.recieved)
         self.inventory_level += self.recieved
 
         if self.time > self.max_num_steps:
             self.done = True
 
-        return (self.inventory_level, self.ordered_goods, self.recieved, self.demand), self.calculate_reward(), self.done, {}
+        return (self.inventory_level, *self.upcoming_n_steps, self.recieved, self.demand), self.calculate_reward(), self.done, {}
 
 
     def reset(self):
@@ -82,7 +101,7 @@ class ChainAgent(gym.Env):
         self.ordered_goods = []
         self.recieved_goods = []
         self.upcoming_goods = np.zeros(self.max_num_steps)
-        return (self.inventory_level, self.ordered_goods, 0, self.demand)
+        return (self.inventory_level, *[0 for _ in range(self.next_n_steps)], 0, self.demand)
 
 
     def render(self, close):
