@@ -20,7 +20,7 @@ register(
 
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 2000
+EPS_DECAY = 5000
 
 from env import ChainAgent
 
@@ -56,8 +56,7 @@ class DQN(nn.Module):
     def forward(self, x):
         x = F.relu(self.lin1(x))
         x = F.relu(self.lin2(x))
-        x = F.relu(self.lin3(x))
-        # x = self.lin3(x)
+        x = self.lin3(x)
         return x
 
 
@@ -88,7 +87,7 @@ GAMMA = 0.9
 EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 2000
-TARGET_UPDATE = 1
+TARGET_UPDATE = 5
 
 # init_screen = get_screen()
 # _, _, screen_height, screen_width = init_screen.shape
@@ -97,9 +96,9 @@ TARGET_UPDATE = 1
 # n_actions = env.action_space.n
 
 policy_net = DQN().to(device)
-# target_net = DQN().to(device)
-# target_net.load_state_dict(policy_net.state_dict())
-# target_net.eval()
+target_net = DQN().to(device)
+target_net.load_state_dict(policy_net.state_dict())
+target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
 memory = ReplayMemory(10000)
@@ -145,44 +144,33 @@ def optimize_model():
     transitions = memory.sample(BATCH_SIZE)
     batch = Transition(*zip(*transitions))
 
-    # for i in batch.next_state:
-        # print(i.shape)
+    # print(batch.state)
+    # print(torch.cat(batch.state), 1)
 
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
-    # print('st batch shape', state_batch.shape)
-    # print('act batch shape', action_batch.shape)
-    # print('NST;', batch.next_state)
     next_states = torch.cat(batch.next_state)
 
     state_action_values = policy_net(state_batch).gather(1, action_batch)
-    # print(state_action_values)
 
-    # print('SAV:', state_action_values.shape)
+    # print('SAV:', state_action_values)
 
     next_state_values = torch.zeros(BATCH_SIZE, device=device)
-    # next_state_values = target_net(next_states).max(1)[0].detach()
-    next_state_values = policy_net(next_states).max(1)[0].detach()
+    next_state_values = target_net(next_states).max(1)[0].detach()
+    # next_state_values = policy_net(next_states).max(1)[0].detach()
 
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
-    # print('rewards:', reward_batch)
-    # print('ESAV:', expected_state_action_values)
-
     # Compute Huber loss
     loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
-    # print(loss)
-    # loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
 
     # Optimize the model
     optimizer.zero_grad()
     loss.backward()
-
     # for param in policy_net.parameters():
     #     param.grad.data.clamp_(-1, 1)
     optimizer.step()
-
 
 rewards = []
 
@@ -195,10 +183,16 @@ for i_episode in range(num_episodes):
         action = select_action(torch.Tensor(state))
         next_state, reward, done, _ = fr_lake.step(action.item())
 
+        if done and not reward == 0:
+            reward = 10.
+
         rewards.append(reward)
         next_state = to_one_hot(next_state)
-        print('PROBS', policy_net(torch.Tensor(state)))
-        print('State', state)
+
+        if done and reward == 0:
+            print(state, next_state)
+        # print('PROBS', policy_net(torch.Tensor(state)))
+        # print('State', state)
         # print('action:', action)
         # print('nxst:', next_state)
         # print('del:', env.)
@@ -220,16 +214,16 @@ for i_episode in range(num_episodes):
                 ...
             break
 
+    if i_episode % TARGET_UPDATE == 0:
+        print(reward)
+        target_net.load_state_dict(policy_net.state_dict())
+
 
 hole_state = torch.Tensor([0 for _ in range(16)])
 for i in range(16):
     hole_state[i] = 1
     print(policy_net(hole_state))
     hole_state[i] = 0
-
-
-
-
 
 
     # print()
@@ -256,9 +250,7 @@ for i in range(16):
 # print(sum(env.d)/len(env.d))
 # print(sum(env.dif)/len(env.dif))
 # print((np.array(env.dif) >= 0).sum())
-    # if i_episode % TARGET_UPDATE == 0:
-        # print(reward)
-        # target_net.load_state_dict(policy_net.state_dict())
+
 
 # from catalyst.rl.offpolicy.algorithms import DDPG
 # ddpg = DDPG()
