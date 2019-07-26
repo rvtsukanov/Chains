@@ -9,13 +9,13 @@ class ChainAgent(gym.Env):
     def __init__(self, inventory_level=0,
                  max_num_steps=15,
                  max_capability_of_storage=20,
-                 delay_factor=0.5,
-                 delay_mean=5,
+                 delay_factor=0,
+                 delay_mean=2,
                  delay_var=1,
                  min_demand=2,
                  max_demand=30,
                  fix_delay=3,
-                 next_n_steps=5,
+                 next_n_steps=10,
                  demand_generation_function=None):
 
         print('=========================================')
@@ -33,10 +33,10 @@ class ChainAgent(gym.Env):
         self.next_n_steps = next_n_steps
         self.demand_generation_function = demand_generation_function
 
+        self.action_min = 0
         self.action_min = 10
-        self.action_min = 20
 
-        self.action_range = list(range(10, 20))
+        self.action_range = list(range(0, 10))
 
         #configuration
         self.time = -1
@@ -53,33 +53,61 @@ class ChainAgent(gym.Env):
         self.delay_factor = delay_factor
         self.delay_mean = delay_mean
         self.delay_var = delay_var
+        self.d = []
+        self.r = []
+        self.dif = []
+        self.il = []
 
         self.max_shipment = 5
 
 
     def delayed(self):
-        if np.random.binomial(1, self.delay_factor):
-            return self.fix_delay + np.random.normal(self.delay_mean, self.delay_var)
-        else:
-            return self.fix_delay
+        # if np.random.binomial(1, self.delay_factor):
+        #     return self.fix_delay + np.random.normal(self.delay_mean, self.delay_var)
+        # else:
+        return 3
 
 
     def calculate_reward(self):
         #TODO: change logic
 
-        return -np.abs(self.inventory_level) * self.c_IL_positive
+        # return -np.abs(self.inventory_level) * self.c_IL_positive
         #* self.c_IL_positive + (self.inventory_level >= 0) * self.c_IL_negative
+
+        if np.abs(self.inventory_level) < 25:
+            return 1.
+        else:
+            return 0.
+
 
 
     def step(self, action):
+        # print('to order', action)
+        # print('to order', self.action_range)
         self.action = self.action_range[action]
         self.time += 1
+        # print(self.time)
 
-        self.demand = self.demand_generation_function()#(self.min_demand, self.max_demand)
+        self.demand = self.demand_generation_function()
+        # print('--')
+        # print('IL: ', self.inventory_level)
         self.inventory_level -= self.demand
+        # print('demand:', self.demand)
+        # print('IL: ', self.inventory_level)
 
-        self.upcoming_goods[int(np.round(self.delayed()) + self.time)] += action
+        self.upcoming_goods[int(np.round(self.delayed()) + self.time)] += self.action
         self.recieved = self.upcoming_goods[self.time]
+        # print('recieved:', self.recieved)
+        self.dif.append(self.recieved - self.demand)
+
+        self.d.append(self.demand)
+        self.r.append(self.recieved)
+        self.il.append(self.inventory_level)
+        # print('---')
+        # print('IL: ', self.inventory_level)
+        self.inventory_level += self.recieved
+        # print('IL: ', self.inventory_level)
+        # print('---')
 
         self.upcoming_n_steps = self.upcoming_goods[self.time: self.time + self.next_n_steps]
         self.sum_all_ordered = self.upcoming_goods[self.time:].sum()
@@ -88,20 +116,27 @@ class ChainAgent(gym.Env):
 
 
         self.recieved_goods.append(self.recieved)
-        self.inventory_level += self.recieved
+        # self.inventory_level += self.recieved
+        # print('IL: ', self.inventory_level)
+        # print('--')
 
         if self.time > self.max_num_steps:
             self.done = True
 
-        return (self.inventory_level, *self.upcoming_n_steps, self.recieved, self.demand), self.calculate_reward(), self.done, {}
+        # print(self.upcoming_n_steps.shape)
+        return (self.inventory_level, self.demand, *self.upcoming_n_steps, self.recieved), self.calculate_reward(), self.done, {}
+        # return (*self.upcoming_n_steps, self.recieved, self.demand), self.calculate_reward(), self.done, {}
+        # return self.upcoming_n_steps, self.calculate_reward(), self.done, {}
+        # return self.upcoming_n_steps, self.calculate_reward(), self.done, {}
 
 
     def reset(self):
+        self.inventory_level = 0
         self.time = 0
         self.ordered_goods = []
         self.recieved_goods = []
         self.upcoming_goods = np.zeros(self.max_num_steps)
-        return (self.inventory_level, *[0 for _ in range(self.next_n_steps)], 0, self.demand)
+        return (self.inventory_level, self.demand, *[0 for _ in range(self.next_n_steps)], 0)
 
 
     def render(self, close):
