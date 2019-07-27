@@ -1,8 +1,7 @@
 import numpy as np
 import torch.nn as nn
-from collections import namedtuple
-import random
 import torch
+import random
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
@@ -10,29 +9,9 @@ import math
 import matplotlib.pyplot as plt
 from constants import *
 from env import ChainAgent
-
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
+from core import ReplayMemory, Transition
 
 
-class ReplayMemory(object):
-    def __init__(self, capacity):
-        self.capacity = capacity
-        self.memory = []
-        self.position = 0
-
-    def push(self, *args):
-        """Saves a transition."""
-        if len(self.memory) < self.capacity:
-            self.memory.append(None)
-        self.memory[self.position] = Transition(*args)
-        self.position = (self.position + 1) % self.capacity
-
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-
-    def __len__(self):
-        return len(self.memory)
 
 
 class DQN(nn.Module):
@@ -60,6 +39,8 @@ class LearnerDQN:
         self.steps_done = 0
         self.optimizer = optim.RMSprop(self.policy_net.parameters())
         self.clip_grad=clip_grad
+
+        self.rewards = []
         self.env = ChainAgent(inventory_level=10,
                          fix_delay=1,
                          max_num_steps=MAX_STEPS + 10,
@@ -99,7 +80,8 @@ class LearnerDQN:
 
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
         next_state_values = torch.zeros(BATCH_SIZE, device=self.device)
-        next_state_values = self.target_net(next_states).max(1)[0].detach()
+        # next_state_values = self.target_net(next_states).max(1)[0].detach()
+        next_state_values = self.policy_net(next_states).max(1)[0].detach()
 
         expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
@@ -118,19 +100,31 @@ class LearnerDQN:
 
     def build_nn(self):
         self.policy_net = DQN().to(self.device)
-        self.target_net = DQN().to(self.device)
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.target_net.eval()
+        # self.target_net = DQN().to(self.device)
+        # self.target_net.load_state_dict(self.policy_net.state_dict())
+        # self.target_net.eval()
+
+
+    def get_stat(self, state, next, reward, action):
+        print('=====')
+        print('DEM: ', self.env.demand_next, 'ST: ', state, ' -> ', action)
+        print('NXST: ', next, 'REW: ', reward)
+        print('=====')
+        print()
 
 
     def run(self):
         for i_episode in range(self.num_episodes):
             state = self.env.reset()
+            rewards = 0
             for step in range(self.trajectory_len):
                 action = self.select_action(torch.Tensor(state))
                 next_state, reward, done, _ = self.env.step(action.item())
-                print('R:', reward)
-                print('IL:', self.env.inventory_level)
+                reward *= 1.
+                rewards += reward
+                # self.get_stat(state, next_state, reward, action)
+                # print('R:', reward)
+                # print('IL:', self.env.inventory_level)
                 reward = torch.tensor([reward], device=self.device)
                 self.replay.push(torch.Tensor([state]), action, torch.Tensor([next_state]), reward)
                 state = next_state
@@ -139,10 +133,21 @@ class LearnerDQN:
                 if done:
                     break
 
+            # print()
+            # print()
+            self.rewards.append(rewards)
+
         if i_episode % TARGET_UPDATE == 0:
-            self.target_net.load_state_dict(self.policy_net.state_dict())
+            print(i_episode, ' : ', np.array(self.rewards).sum())
+        #     self.target_net.load_state_dict(self.policy_net.state_dict())
 
 
 
-learner = LearnerDQN(num_episodes=1000, trajectory_len=100)
+
+learner = LearnerDQN(num_episodes=2000, trajectory_len=100)
 learner.run()
+
+
+plt.plot(np.array(learner.rewards))
+plt.show()
+torch.save(learner.policy_net, open('mod', 'w+'))
