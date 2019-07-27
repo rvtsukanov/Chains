@@ -10,8 +10,14 @@ import matplotlib.pyplot as plt
 from constants import *
 from env import ChainAgent
 from core import ReplayMemory, Transition
+import datetime
+import os
 
 
+experiment_config = {'name': 'DQN_only_policy_delay_2_rew10',
+                     'timestamp': datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S%f"),
+                     'x_label': 'Epoch',
+                     'y_label': 'Sum of reward on the trajectory'}
 
 
 class DQN(nn.Module):
@@ -41,6 +47,7 @@ class LearnerDQN:
         self.clip_grad=clip_grad
 
         self.rewards = []
+        self.modules = []
         self.env = ChainAgent(inventory_level=10,
                          fix_delay=1,
                          max_num_steps=MAX_STEPS + 10,
@@ -137,17 +144,28 @@ class LearnerDQN:
             # print()
             self.rewards.append(rewards)
 
-        if i_episode % TARGET_UPDATE == 0:
-            print(i_episode, ' : ', np.array(self.rewards).sum())
+            if i_episode % TARGET_UPDATE == 0:
+                print(i_episode, ' : ', np.array(self.rewards[-1]).sum())
         #     self.target_net.load_state_dict(self.policy_net.state_dict())
 
 
 
+os.makedirs(experiment_config['name'], exist_ok=True)
 
-learner = LearnerDQN(num_episodes=2000, trajectory_len=100)
+learner = LearnerDQN(num_episodes=10000, trajectory_len=100)
 learner.run()
 
 
 plt.plot(np.array(learner.rewards))
+
+plt.title(experiment_config['name'])
+plt.xlabel(experiment_config['x_label'])
+plt.ylabel(experiment_config['y_label'])
+
+path = experiment_config['name']
+np.save(os.path.join(path, experiment_config['timestamp'] + 'raw_data'), np.array(learner.rewards))
+plt.savefig(os.path.join(path, experiment_config['timestamp'] + 'pic'))
 plt.show()
-torch.save(learner.policy_net, open('mod', 'w+'))
+
+
+torch.save(learner.policy_net.state_dict(), os.path.join(path, experiment_config['timestamp'] + 'model'))

@@ -66,7 +66,7 @@ class ChainAgent(gym.Env):
         # if np.random.binomial(1, self.delay_factor):
         #     return self.fix_delay + np.random.normal(self.delay_mean, self.delay_var)
         # else:
-        return 1
+        return 2
 
 
     def calculate_reward(self):
@@ -75,7 +75,7 @@ class ChainAgent(gym.Env):
         # return -np.abs(self.inventory_level) * self.c_IL_positive
         #* self.c_IL_positive + (self.inventory_level >= 0) * self.c_IL_negative
 
-        if np.abs(self.inventory_level) < 20:
+        if np.abs(self.inventory_level) < 10:
             return 1
 
         else:
