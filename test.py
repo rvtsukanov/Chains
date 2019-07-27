@@ -62,7 +62,7 @@ class LearnerDQN:
         if sample > eps_threshold:
             # print('greedy')
             with torch.no_grad():
-                return self.policy_net(state).max(1)[1].view(1, 1)
+                return self.policy_net(state.cuda()).max(1)[1].view(1, 1)
         else:
             # print('random')
             return torch.tensor([[random.randrange(N_ACTIONS)]], device=self.device, dtype=torch.long)
@@ -80,10 +80,10 @@ class LearnerDQN:
         transitions = self.replay.sample(BATCH_SIZE)
         batch = Transition(*zip(*transitions))
 
-        state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
-        next_states = torch.cat(batch.next_state)
+        state_batch = torch.cat(batch.state).cuda()
+        action_batch = torch.cat(batch.action).cuda()
+        reward_batch = torch.cat(batch.reward).cuda()
+        next_states = torch.cat(batch.next_state).cuda()
 
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
         next_state_values = torch.zeros(BATCH_SIZE, device=self.device)

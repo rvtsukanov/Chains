@@ -132,23 +132,7 @@ class ChainAgent(gym.Env):
         return (self.inventory_level, self.demand_next, *[0 for _ in range(self.next_n_steps)], 0)
 
 
-    def render(self, close):
-        print('#{}    {} <- |{}| -> ({}) <- {}'.format(self.time, self.demand, self.inventory_level, self.action, self.recieved))
-        # print(tabulate(pd.DataFrame(self.upcoming_goods).T, tablefmt='psql'))
-
-        # Color
-        R = "\033[0;31;40m"  # RED
-        G = "\033[0;32;40m"  # GREEN
-        Y = "\033[0;33;40m"  # Yellow
-        B = "\033[0;34;40m"  # Blue
-        N = "\033[0m"  # Reset
-        t = PrettyTable(range(len(self.upcoming_goods)))
-
-        upcoming = list(map(str, self.upcoming_goods.copy()))
-        upcoming[self.time] = str(R + str(upcoming[self.time]) + N)
-
-        t.add_row(upcoming)
-        print(t)
+    
 
 
 
