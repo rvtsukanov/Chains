@@ -15,7 +15,7 @@ import datetime
 import os
 
 
-experiment_config = {'name': 'AC_delay_2_rew_quadratic_random_delay',
+experiment_config = {'name': 'RANDOM_BASELINE_delay_2_rew_quadratic_random_delay',
                      'timestamp': datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S%f"),
                      'x_label': 'Epoch',
                      'y_label': 'Sum of reward on the trajectory'}
@@ -91,7 +91,7 @@ class LearnerActorCritic:
     def select_action(self, state):
         state = torch.from_numpy(np.array(state)).float()
         probs, state_value = self.model(state)
-        m = Categorical(probs)
+        m = Categorical(torch.Tensor([1./N_ACTIONS for _ in range(N_ACTIONS)]))
         action = m.sample()
         self.model.saved_actions.append(SavedAction(m.log_prob(action), state_value))
         return action.item()
@@ -158,6 +158,8 @@ class LearnerActorCritic:
 
                 # take the action
                 state, reward, done, _ = self.env.step(action)
+                # print(reward)
+                # print('IL', self.env.inventory_level)
                 # self.rews.append(reward)
 
                 self.model.rewards.append(reward)
@@ -168,7 +170,7 @@ class LearnerActorCritic:
 
             # update cumulative reward with smoothing
             running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
-            self.rewards.append(running_reward/MAX_STEPS)
+            self.rewards.append(running_reward)
 
             # perform backprop
             self.finish_episode()
