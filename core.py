@@ -3,6 +3,11 @@ import random
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
+Trajectory = namedtuple('Trajectory',
+                        ('state', 'action', 'reward'))
+
+SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
+
 class ReplayMemory(object):
     def __init__(self, capacity):
         self.capacity = capacity

@@ -8,6 +8,7 @@ from prettytable import PrettyTable
 class ChainAgent(gym.Env):
     def __init__(self, inventory_level=0,
                  max_num_steps=15,
+                 reward_level=20,
                  max_capability_of_storage=20,
                  delay_factor=0,
                  delay_mean=2,
@@ -15,8 +16,12 @@ class ChainAgent(gym.Env):
                  min_demand=2,
                  max_demand=30,
                  fix_delay=3,
+                 is_random_delay=False,
                  next_n_steps=10,
-                 demand_generation_function=None):
+                 demand_generation_function=None,
+                 custom_func=None,
+                 custom_func_args=None
+                 ):
 
         print('=========================================')
         print('INITIAL CONFIGURATION: inventory level {}'.format(inventory_level))
@@ -26,13 +31,18 @@ class ChainAgent(gym.Env):
         self.max_num_steps = max_num_steps
         self.done = False
         self.c_IL_positive = 1
+        self.is_random_delay = is_random_delay
         self.c_IL_negative = 1
         self.min_demand = min_demand
         self.max_demand = max_demand
         self.fix_delay = fix_delay
         self.next_n_steps = next_n_steps
+        self.custom_func = custom_func
+        self.custom_func_args = custom_func_args
+
         self.demand_generation_function = demand_generation_function
         self.demand_next = self.demand_generation_function()
+        self.reward_level = reward_level
 
         self.action_min = 0
         self.action_min = 10
@@ -63,23 +73,31 @@ class ChainAgent(gym.Env):
 
 
     def delayed(self):
-        # if np.random.binomial(1, self.delay_factor):
-        #     return self.fix_delay + np.random.normal(self.delay_mean, self.delay_var)
-        # else:
-        return 2
+        if self.is_random_delay:
+            if np.random.binomial(1, self.delay_factor):
+                return self.fix_delay + np.random.normal(self.delay_mean, self.delay_var)
+            else:
+                return self.fix_delay
+        else:
+            return self.fix_delay
 
 
-    def calculate_reward(self):
+    def calculate_reward(self, custom_func=None, custom_func_args=None):
         #TODO: change logic
 
         # return -np.abs(self.inventory_level) * self.c_IL_positive
         #* self.c_IL_positive + (self.inventory_level >= 0) * self.c_IL_negative
 
-        if np.abs(self.inventory_level) < 10:
-            return 1
+        if not custom_func:
+            if np.abs(self.inventory_level) < self.reward_level:
+                return 1.
+
+            else:
+                return 0.
 
         else:
-            return 0
+            return custom_func(x=self.inventory_level, **custom_func_args)
+
         # elif np.abs(self.inventory_level) < 10:
         #     return 10
         # elif np.abs(self.inventory_level) < 20:
@@ -120,7 +138,8 @@ class ChainAgent(gym.Env):
         if self.time > self.max_num_steps:
             self.done = True
 
-        return (self.inventory_level, self.demand_next, self.recieved, *self.upcoming_n_steps), self.calculate_reward(), self.done, {}
+        return (self.inventory_level, self.demand_next, self.recieved, *self.upcoming_n_steps), \
+               self.calculate_reward(custom_func=self.custom_func, custom_func_args=self.custom_func_args), self.done, {}
 
 
     def reset(self):
