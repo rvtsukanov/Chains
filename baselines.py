@@ -15,7 +15,7 @@ import datetime
 import os
 
 
-experiment_config = {'name': 'RANDOM_BASELINE_delay_2_rew_quadratic_random_delay',
+experiment_config = {'name': 'CONST_BASELINE_delay_2_rew_10',
                      'timestamp': datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S%f"),
                      'x_label': 'Epoch',
                      'y_label': 'Sum of reward on the trajectory'}
@@ -91,7 +91,8 @@ class LearnerActorCritic:
     def select_action(self, state):
         state = torch.from_numpy(np.array(state)).float()
         probs, state_value = self.model(state)
-        m = Categorical(torch.Tensor([1./N_ACTIONS for _ in range(N_ACTIONS)]))
+        m = Categorical(torch.Tensor([1 if n == 5 else 0 for n in range(N_ACTIONS)]))
+        # m = Categorical(torch.Tensor([1./N_ACTIONS for n in range(N_ACTIONS)]))
         action = m.sample()
         self.model.saved_actions.append(SavedAction(m.log_prob(action), state_value))
         return action.item()
@@ -185,12 +186,15 @@ class LearnerActorCritic:
 os.makedirs(experiment_config['name'], exist_ok=True)
 
 
-learner = LearnerActorCritic(num_episodes=20000,
+# def f(x, alpha=20):
+#     if np.abs
+
+learner = LearnerActorCritic(num_episodes=10000,
                              reward_level=10,
                              fix_delay=3,
                              is_random_delay=True,
-                             custom_func=lambda x: -(x ** 2)/400 + 1,
-                             custom_func_args={})
+                             custom_func=lambda x, alpha: 0 if np.abs(x) > alpha else 1,
+                             custom_func_args={'alpha': 10})
 learner.run()
 
 path = experiment_config['name']

@@ -14,7 +14,7 @@ import datetime
 import os
 
 
-experiment_config = {'name': 'DQN_only_policy_delay_2_rew10',
+experiment_config = {'name': 'DQN_delay_2_rew_qudratic',
                      'timestamp': datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S%f"),
                      'x_label': 'Epoch',
                      'y_label': 'Sum of reward on the trajectory'}
@@ -35,7 +35,12 @@ class DQN(nn.Module):
 
 
 class LearnerDQN:
-    def __init__(self, clip_grad=True, num_episodes=50, trajectory_len=MAX_STEPS):
+    def __init__(self, clip_grad=True,
+                 num_episodes=50,
+                 trajectory_len=MAX_STEPS,
+                 custom_func=None,
+                 custom_func_args=None
+                 ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.build_nn()
         self.num_episodes = num_episodes
@@ -51,7 +56,9 @@ class LearnerDQN:
         self.env = ChainAgent(inventory_level=10,
                          fix_delay=1,
                          max_num_steps=MAX_STEPS + 10,
-                         demand_generation_function=self.demand_generation_function)
+                         demand_generation_function=self.demand_generation_function,
+                         custom_func=custom_func,
+                         custom_func_args=custom_func_args)
 
     def select_action(self, state):
         state = torch.Tensor(state)[None, :]
@@ -129,9 +136,6 @@ class LearnerDQN:
                 next_state, reward, done, _ = self.env.step(action.item())
                 reward *= 1.
                 rewards += reward
-                # self.get_stat(state, next_state, reward, action)
-                # print('R:', reward)
-                # print('IL:', self.env.inventory_level)
                 reward = torch.tensor([reward], device=self.device)
                 self.replay.push(torch.Tensor([state]), action, torch.Tensor([next_state]), reward)
                 state = next_state
@@ -140,19 +144,18 @@ class LearnerDQN:
                 if done:
                     break
 
-            # print()
-            # print()
             self.rewards.append(rewards)
 
             if i_episode % TARGET_UPDATE == 0:
-                print(i_episode, ' : ', np.array(self.rewards[-1]).sum())
-        #     self.target_net.load_state_dict(self.policy_net.state_dict())
-
+                print(i_episode, ' : ', np.array(self.rewards[-100:]).mean())
 
 
 os.makedirs(experiment_config['name'], exist_ok=True)
 
-learner = LearnerDQN(num_episodes=10000, trajectory_len=100)
+learner = LearnerDQN(num_episodes=10000,
+                     trajectory_len=100,
+                     custom_func=lambda x, alpha: -(x ** 2)/alpha + 1,
+                     custom_func_args={'alpha': 400})
 learner.run()
 
 
