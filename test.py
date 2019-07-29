@@ -13,7 +13,7 @@ from core import ReplayMemory, Transition
 import datetime
 import os
 
-
+#Confing used in creating corresponding folders in root directory and name data/plots/models recieved from particular experiment
 experiment_config = {'name': 'DQN_delay_2_rew_qudratic',
                      'timestamp': datetime.datetime.now().strftime("%d-%b-%Y-%H-%M-%S%f"),
                      'x_label': 'Epoch',
@@ -21,6 +21,9 @@ experiment_config = {'name': 'DQN_delay_2_rew_qudratic',
 
 
 class DQN(nn.Module):
+    '''
+    Deep Q-Network architecture.
+    '''
     def __init__(self):
         super(DQN, self).__init__()
         self.lin1 = nn.Linear(INP_DIM, 128)
@@ -35,12 +38,23 @@ class DQN(nn.Module):
 
 
 class LearnerDQN:
+    '''
+    Learner class - abstraction which includes configuration of experiment, necessary models, and all actions needed for conduction.
+    '''
     def __init__(self, clip_grad=True,
                  num_episodes=50,
                  trajectory_len=MAX_STEPS,
                  custom_func=None,
                  custom_func_args=None
                  ):
+        '''
+        Initialization
+        :param clip_grad: bool: flag for clipping gradients with value 1
+        :param num_episodes: number of episodes to run
+        :param trajectory_len: maximal number of steps in each trajectory
+        :param custom_func: custom reward function
+        :param custom_func_args: custom reward function arguments
+        '''
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.build_nn()
         self.num_episodes = num_episodes
@@ -61,6 +75,11 @@ class LearnerDQN:
                          custom_func_args=custom_func_args)
 
     def select_action(self, state):
+        '''
+        Implementation of e-greedy approach
+        :param state: input state to choose appropriate action
+        :return: Tensor: action
+        '''
         state = torch.Tensor(state)[None, :]
         sample = random.random()
         eps_threshold = EPS_END + (EPS_START - EPS_END) * \
@@ -76,10 +95,18 @@ class LearnerDQN:
 
 
     def demand_generation_function(self):
+        '''
+        Default function to generate demand
+        :return: int: demand level
+        '''
         return np.random.randint(0, 10)
 
 
     def optimize_model(self):
+        '''
+        Method of optimizing parameters of neural net
+        :return:
+        '''
 
         if len(self.replay) < BATCH_SIZE:
             return
@@ -113,6 +140,10 @@ class LearnerDQN:
 
 
     def build_nn(self):
+        '''
+        Building torch graph
+        :return:
+        '''
         self.policy_net = DQN().to(self.device)
         # self.target_net = DQN().to(self.device)
         # self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -120,6 +151,14 @@ class LearnerDQN:
 
 
     def get_stat(self, state, next, reward, action):
+        '''
+        Some visualisation
+        :param state:
+        :param next:
+        :param reward:
+        :param action:
+        :return:
+        '''
         print('=====')
         print('DEM: ', self.env.demand_next, 'ST: ', state, ' -> ', action)
         print('NXST: ', next, 'REW: ', reward)
@@ -128,6 +167,10 @@ class LearnerDQN:
 
 
     def run(self):
+        '''
+        Main loop of training. Iterates over num_episodes * trajectory len steps
+        :return:
+        '''
         for i_episode in range(self.num_episodes):
             state = self.env.reset()
             rewards = 0
@@ -149,6 +192,8 @@ class LearnerDQN:
             if i_episode % TARGET_UPDATE == 0:
                 print(i_episode, ' : ', np.array(self.rewards[-100:]).mean())
 
+
+# Saving module
 
 os.makedirs(experiment_config['name'], exist_ok=True)
 

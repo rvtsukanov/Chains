@@ -22,6 +22,9 @@ experiment_config = {'name': 'REINFORCE_delay_2_rew10',
 
 
 class Actor(nn.Module):
+    '''
+    Actor's base class
+    '''
     def __init__(self):
         super(Actor, self).__init__()
         self.lin1 = nn.Linear(INP_DIM, INNER_DIM)
@@ -38,6 +41,9 @@ class Actor(nn.Module):
 
 
 class LearnerREINFORCE:
+    '''
+    Learner class - abstraction which includes configuration of experiment, necessary models, and all actions needed for conduction.
+    '''
     def __init__(self, num_episodes=NUM_EPISODES, trajectory_len=MAX_STEPS, clip_grad=True):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.num_episodes = num_episodes

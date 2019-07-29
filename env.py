@@ -6,6 +6,9 @@ from tabulate import tabulate
 from prettytable import PrettyTable
 
 class ChainAgent(gym.Env):
+    '''
+    Base class for simulation
+    '''
     def __init__(self, inventory_level=0,
                  max_num_steps=15,
                  reward_level=20,
@@ -23,6 +26,25 @@ class ChainAgent(gym.Env):
                  custom_func_args=None
                  ):
 
+        '''
+        Initialization
+        :param inventory_level: float: starting level of goods in stock
+        :param max_num_steps: int:  length of a trajectory
+        :param reward_level: int: level of inventory_level for recieving positive reward (=1)
+        :param max_capability_of_storage: int: maximal number of goods in storage
+        :param delay_factor: float:  probability of next order is delayed
+        :param delay_mean: float: mean of delayed noise
+        :param delay_var: float: variance of delayed noise
+        :param min_demand: minimal value of demand
+        :param max_demand: maximal value of demand
+        :param fix_delay: int: fixed number of timesteps
+        :param is_random_delay: bool: flag of using delay
+        :param next_n_steps: number of steps in horizon to use as state
+        :param demand_generation_function: function to generate demand
+        :param custom_func: custom reward function
+        :param custom_func_args: custom reward function args
+        '''
+
         print('=========================================')
         print('INITIAL CONFIGURATION: inventory level {}'.format(inventory_level))
         print('=========================================')
@@ -39,28 +61,17 @@ class ChainAgent(gym.Env):
         self.next_n_steps = next_n_steps
         self.custom_func = custom_func
         self.custom_func_args = custom_func_args
-
         self.demand_generation_function = demand_generation_function
         self.demand_next = self.demand_generation_function()
         self.reward_level = reward_level
-
         self.action_min = 0
         self.action_min = 10
-
         self.action_range = list(range(0, 10))
-
-        #configuration
         self.time = -1
-
-        #state variables
         self.ordered_goods = []
         self.recieved_goods = []
         self.upcoming_goods = np.zeros(self.max_num_steps)
-
-        # self.demand = 0
         self.max_capability_of_storage = max_capability_of_storage
-
-        #delay
         self.delay_factor = delay_factor
         self.delay_mean = delay_mean
         self.delay_var = delay_var
@@ -68,11 +79,16 @@ class ChainAgent(gym.Env):
         self.r = []
         self.dif = []
         self.il = []
-
         self.max_shipment = 5
 
 
     def delayed(self):
+        '''
+        Function for generating delay in shipment:
+        If flag is_random delay is on - use augmentation by addind normally distributed noise
+        :return:
+        '''
+
         if self.is_random_delay:
             if np.random.binomial(1, self.delay_factor):
                 return self.fix_delay + np.random.normal(self.delay_mean, self.delay_var)
@@ -83,10 +99,10 @@ class ChainAgent(gym.Env):
 
 
     def calculate_reward(self, custom_func=None, custom_func_args=None):
-        #TODO: change logic
-
-        # return -np.abs(self.inventory_level) * self.c_IL_positive
-        #* self.c_IL_positive + (self.inventory_level >= 0) * self.c_IL_negative
+        '''
+        Reward calculation
+        :return:
+        '''
 
         if not custom_func:
             if np.abs(self.inventory_level) < self.reward_level:
@@ -98,37 +114,22 @@ class ChainAgent(gym.Env):
         else:
             return custom_func(x=self.inventory_level, **custom_func_args)
 
-        # elif np.abs(self.inventory_level) < 10:
-        #     return 10
-        # elif np.abs(self.inventory_level) < 20:
-        #     return 5
-        # elif np.abs(self.inventory_level) < 30:
-        #     return 1
-        # else:
-        #     return -1
-
-
 
 
     def step(self, action):
+        '''
+        Function to proceed step in the environment. Behave like OpenAI gym's env.step(action)
+        :param action: action to proceed
+        :return:
+        '''
         self.action = self.action_range[action]
         self.time += 1
-
         self.demand_last = self.demand_next
         self.demand_next = self.demand_generation_function()
-
         self.inventory_level -= self.demand_last
         self.upcoming_goods[int(np.round(self.delayed()) + self.time)] += self.action
-
         self.recieved = self.upcoming_goods[self.time]
-
-        # self.dif.append(self.recieved - self.demand)
-        # self.d.append(self.demand)
-        # self.r.append(self.recieved)
-        # self.il.append(self.inventory_level)
-
         self.inventory_level += self.recieved
-
         self.upcoming_n_steps = self.upcoming_goods[self.time: self.time + self.next_n_steps]
         self.sum_all_ordered = self.upcoming_goods[self.time:].sum()
 
@@ -143,6 +144,10 @@ class ChainAgent(gym.Env):
 
 
     def reset(self):
+        '''
+        Reset the environment on new trajectory
+        :return:
+        '''
         self.inventory_level = 0
         self.time = 0
         self.ordered_goods = []
@@ -152,6 +157,10 @@ class ChainAgent(gym.Env):
 
 
     def render(self, close):
+        '''
+        Renders the environment
+        :return: None
+        '''
         print('#{}    {} <- |{}| -> ({}) <- {}'.format(self.time, self.demand, self.inventory_level, self.action, self.recieved))
         # print(tabulate(pd.DataFrame(self.upcoming_goods).T, tablefmt='psql'))
 
@@ -168,9 +177,3 @@ class ChainAgent(gym.Env):
 
         t.add_row(upcoming)
         print(t)
-
-
-
-
-
-

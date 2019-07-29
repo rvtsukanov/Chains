@@ -52,6 +52,9 @@ class Policy(nn.Module):
 
 
 class LearnerActorCritic:
+    '''
+    Base class of actor-critic - abstraction which includes configuration of experiment, necessary models, and all actions needed for conduction.
+    '''
     def __init__(self, gamma=0.999,
                  log_interval=10,
                  num_episodes=NUM_EPISODES,
@@ -61,6 +64,17 @@ class LearnerActorCritic:
                  custom_func=None,
                  custom_func_args=None
                  ):
+        '''
+
+        :param gamma: decay of rewards
+        :param log_interval: interval of printing metrics to console
+        :param num_episodes: number of episodes
+        :param fix_delay: fix delay from env.fix_delay
+        :param is_random_delay: is_random_delay from env.is_random_delay
+        :param reward_level: level of reward
+        :param custom_func: custom reward function
+        :param custom_func_args: custom reward function's arguments
+        '''
         self.env = ChainAgent(inventory_level=10,
                               fix_delay=fix_delay,
                               reward_level=reward_level,
@@ -89,6 +103,11 @@ class LearnerActorCritic:
 
 
     def select_action(self, state):
+        '''
+        Method to choose action in particular state
+        :param state:
+        :return:
+        '''
         state = torch.from_numpy(np.array(state)).float()
         probs, state_value = self.model(state)
         m = Categorical(probs)
@@ -142,35 +161,23 @@ class LearnerActorCritic:
 
     rews = []
     def run(self):
-        running_reward = 0 #TODO: was 10
-
-        # run inifinitely many episodes
+        '''
+        Main running loop
+        :return:
+        '''
+        running_reward = 0
         for i_episode in range(self.num_episodes):
-
-            # reset environment and episode reward
             state = self.env.reset()
             ep_reward = 0
-
             for step in range(100):
-
-                # select action from policy
                 action = self.select_action(state)
-
-                # take the action
                 state, reward, done, _ = self.env.step(action)
-                # self.rews.append(reward)
-
                 self.model.rewards.append(reward)
                 ep_reward += reward
-
                 if done:
                     break
-
-            # update cumulative reward with smoothing
             running_reward = 0.05 * ep_reward + (1 - 0.05) * running_reward
             self.rewards.append(running_reward/MAX_STEPS)
-
-            # perform backprop
             self.finish_episode()
 
             # log results
